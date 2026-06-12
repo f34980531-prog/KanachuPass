@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>神奈中定期アシスタント</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+
+        input, button {
+            padding: 8px;
+            font-size: 16px;
+        }
+
+        button {
+            background: #007aff;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 16px;
+        }
+
+        .kanachu-btn {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .warning {
+            color: red;
+            font-weight: bold;
+        }
+
+        h1 {
+            color: #0066cc;
+        }
+
+        #result {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚌 神奈中定期アシスタント</h1>
+
+    <p>運賃を入力してください</p>
+
+    <input type="number" id="fare" placeholder="220">
+
+    <label>
+        <input type="checkbox" id="pass" onchange="saveData(); calculate();">
+        定期区間内
+    </label>
+
+    <label>
+        有効期限:
+        <input type="date" id="expiryDate">
+    </label>
+
+    <button onclick="calculate()">
+        計算
+    </button>
+
+    <button onclick="document.getElementById('fare').value=300">
+        300円区間
+    </button>
+
+    <button onclick="checkExpire()">
+        期限確認
+    </button>
+
+    <button class="kanachu-btn" onclick="window.open('https://real.kanachu.jp/pc/top', '_blank')">
+        🚌 神奈中バスロケーション
+    </button>
+
+    <p id="daysResult"></p>
+
+    <h2 id="result">実際の支払額: 0円</h2>
+
+    <script>
+    window.onload = loadData;
+
+    const savedFare = localStorage.getItem("fare");
+
+    if (savedFare) {
+        document.getElementById("fare").value = savedFare;
+    }
+
+    document.getElementById("expiryDate").addEventListener("change", function() {
+        localStorage.setItem("expiryDate", this.value);
+    });
+
+    document.getElementById("fare").addEventListener("input", function() {
+        localStorage.setItem("fare", this.value);
+    });
+
+    function loadData() {
+        const STORAGE_KEY = "kanachuPassData";
+        let savedFare = "";
+        let savedPass = false;
+        let savedExpiry = "";
+        const savedData = localStorage.getItem(STORAGE_KEY);
+
+        if (savedData) {
+            try {
+                const parsed = JSON.parse(savedData);
+                savedFare = parsed.fare || "";
+                savedPass = parsed.pass === true || parsed.pass === "true";
+                savedExpiry = parsed.expiry || "";
+            } catch (e) {
+                savedFare = localStorage.getItem("fare") || "";
+                savedPass = localStorage.getItem("pass") === "true";
+                savedExpiry = localStorage.getItem("expiry") || "";
+            }
+        } else {
+            savedFare = localStorage.getItem("fare") || "";
+            savedPass = localStorage.getItem("pass") === "true";
+            savedExpiry = localStorage.getItem("expiry") || "";
+        }
+        if (!savedExpiry) {
+            savedExpiry = localStorage.getItem("expiryDate") || "";
+        }
+
+        const expiryInput = document.getElementById("expiryDate");
+        document.getElementById("fare").value = savedFare;
+        document.getElementById("pass").checked = savedPass;
+        expiryInput.value = savedExpiry;
+        if (!savedExpiry) {
+            expiryInput.valueAsDate = new Date();
+        }
+
+        if (expiryInput.value) {
+            checkExpire();
+        }
+
+        calculate();
+    }
+
+    function calculate() {
+        const fareInput = document.getElementById("fare");
+        const fare = Number(fareInput.value);
+        const hasPass = document.getElementById("pass").checked;
+        const resultElement = document.getElementById("result");
+
+        if (!hasPass && !fare) {
+            alert("運賃を入力してください");
+            return;
+        }
+
+        fareInput.disabled = hasPass;
+        const result = hasPass ? 0 : fare;
+
+        resultElement.textContent = "実際の支払額: " + result + "円";
+        if (result === 0) {
+            resultElement.style.color = "green";
+        } else {
+            resultElement.style.color = "black";
+        }
+
+        saveData();
+    }
+
+    function saveData() {
+        const data = {
+            fare: document.getElementById("fare").value,
+            pass: document.getElementById("pass").checked,
+            expiry: document.getElementById("expiryDate").value
+        };
+        localStorage.setItem("kanachuPassData", JSON.stringify(data));
+    }
+
+    function updateExpireResult(expiryValue) {
+        const expiryDate = new Date(expiryValue);
+        const today = new Date();
+        const diffTime = expiryDate - today;
+        const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const result = document.getElementById("daysResult");
+
+        if (daysLeft < 0) {
+            result.textContent = "❌ 定期券の期限が切れています";
+            result.style.color = "red";
+        } else if (daysLeft === 0) {
+            result.textContent = "⚠️ 本日が有効期限です";
+            result.style.color = "orange";
+        } else if (daysLeft <= 7) {
+            result.textContent = "⚠️ 残り " + daysLeft + " 日";
+            result.style.color = "orange";
+        } else {
+            result.textContent = "✅ 残り " + daysLeft + " 日";
+            result.style.color = "green";
+        }
+    }
+
+    function checkExpire() {
+        const expiryInput = document.getElementById("expiryDate");
+        const expiryValue = expiryInput.value;
+        const result = document.getElementById("daysResult");
+
+        if (!expiryValue) {
+            result.textContent = "有効期限を入力してください";
+            result.style.color = "black";
+            return;
+        }
+
+        updateExpireResult(expiryValue);
+        saveData();
+    }
+    </script>
+</body>
